@@ -1,0 +1,26 @@
+[project]
+name = "dp-databricks-logging"
+version = "0.1.0"
+description = "Log setup for databricks workflows / jobs"
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    "loguru>=0.7.3",
+    "requests>=2.32.3",
+]
+
+[tool.uv]
+managed = true
+dev-dependencies = [
+    "pre-commit>=3.7.0",
+    "databricks-sdk[notebook]>=0.43.0",
+    "ruff>=0.11.0"
+]
+
+[tool.mypy]
+disallow_untyped_defs = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D203", "D213", "COM812", "PD901", "ISC001"]
