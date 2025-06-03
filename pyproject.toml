@@ -3,7 +3,7 @@ name = "dp-databricks-logging"
 version = "0.1.0"
 description = "Log setup for databricks workflows / jobs"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 
 dependencies = [
     "loguru>=0.7.3",
