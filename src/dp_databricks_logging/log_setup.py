@@ -53,6 +53,7 @@ class LogWrapper:
     cluster_name: str | None = ""
     user_name: str = ""
     logger_id: int | None = None
+    service: str = "dp-databricks-logging"
 
     @classmethod
     def write_events_to_datadog(cls: type[LogWrapper], event: dict[str, Any]) -> None:
@@ -60,7 +61,7 @@ class LogWrapper:
         url = "https://http-intake.logs.datadoghq.eu/api/v2/logs"
         headers = {"DD-API-KEY": LogWrapper.DD_API_TOKEN}
         data = event
-        data["service"] = "dp-workflows"
+        data["service"] = LogWrapper.service
         data["hostname"] = LogWrapper.cluster_name
         data["username"] = LogWrapper.user_name
         env = os.environ.get("environment")  # noqa: SIM112
@@ -164,8 +165,15 @@ def _get_cluster_name() -> str:
     return "serverless"
 
 
-def setup_dd_logging() -> None:
-    """Set up logging to datadog."""
+def setup_dd_logging(logger_name: str) -> None:
+    """Set up logging to datadog.
+
+    Parameters
+    ----------
+    logger_name : str
+        This will also be used as 'service' tag for datadog.
+
+    """
     dbutils = _get_dbutils()
 
     LogWrapper.DD_API_TOKEN = dbutils.secrets.get("keyvault", "DD-API-KEY")
@@ -177,6 +185,7 @@ def setup_dd_logging() -> None:
         .userName()
         .get()
     )
+    LogWrapper.service = logger_name
     LogWrapper.logger_id = logger.add(__dd_sink, level="INFO")
 
 
@@ -186,18 +195,32 @@ def setup_logging(logger_name: str, **kwargs: Any) -> loguru.Logger:  # noqa: AN
     :param logger_name: Descriptive name of this particular logger,
     e.g. dp-workflows, dp-notebooks etc.
     :type logger_name: str
+    :param interceptions. A list, tuple or set of logger_names to intercept and forward
+    to this logger. Defaults to ["brickops"]
     """
     # Since we are often called from notebooks,
     # we need to deal with log_setup happening multiple times.
-
     if LogWrapper.logger_id:
         logger.info("Log setup has already been done.")
     else:
         update_root_handler()
-        setup_dd_logging()
+        setup_dd_logging(logger_name)
 
+    # Set up interception of other loggers
     intercept_handler = InterceptHandler()
-    logging.getLogger(logger_name).handlers = [intercept_handler]
-    logging.getLogger(logger_name).setLevel(logging.INFO)
+
+    if interceptions := kwargs.get("interceptions"):
+        if type(interceptions) not in (set, list, tuple):
+            msg = "interceptions must be a list, tuple or a set"
+            raise ValueError(msg)
+        kwargs.pop("interceptions")
+    else:
+        interceptions = [
+            "brickops"
+        ]  # To stay backwards compatible we default to intercept the brickops loggers
+
+    for to_intercept in interceptions:
+        logging.getLogger(to_intercept).handlers = [intercept_handler]
+        logging.getLogger(to_intercept).setLevel(logging.INFO)
 
     return logger.bind(**kwargs)
