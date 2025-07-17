@@ -15,7 +15,8 @@ managed = true
 dev-dependencies = [
     "pre-commit>=3.7.0",
     "databricks-sdk[notebook]>=0.43.0",
-    "ruff>=0.11.0"
+    "ruff>=0.11.0",
+    "types-requests>=2.32.4.20250611",
 ]
 
 [tool.mypy]
