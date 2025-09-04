@@ -52,6 +52,7 @@ class LogWrapper:
     DD_API_TOKEN: str = ""
     cluster_name: str | None = ""
     user_name: str = ""
+    notebook_name: str = ""
     logger_id: int | None = None
     service: str = "dp-databricks-logging"
 
@@ -64,6 +65,7 @@ class LogWrapper:
         data["service"] = LogWrapper.service
         data["hostname"] = LogWrapper.cluster_name
         data["username"] = LogWrapper.user_name
+        data["notebookname"] = LogWrapper.notebook_name
         env = os.environ.get("environment")  # noqa: SIM112
         data["ddtags"] = f"env:{env},status:{event['level']}"
         response = requests.post(url, headers=headers, json=data, timeout=10)
@@ -165,6 +167,22 @@ def _get_cluster_name() -> str:
     return "serverless"
 
 
+def _get_notebook_name() -> str:
+    """Get the current notebook name."""
+    dbutils = _get_dbutils()
+    with suppress(Exception):
+        notebook_name = (
+            dbutils.notebook.entry_point.getDbutils()  # type: ignore [attr-defined]
+            .notebook()
+            .getContext()
+            .notebookPath()
+            .getOrElse(None)
+        )
+        if notebook_name:
+            return notebook_name.split("/")[-1]
+    return "unknown_notebook"
+
+
 def setup_dd_logging(logger_name: str) -> None:
     """Set up logging to datadog.
 
@@ -185,6 +203,7 @@ def setup_dd_logging(logger_name: str) -> None:
         .userName()
         .get()
     )
+    LogWrapper.notebook_name = _get_notebook_name()
     LogWrapper.service = logger_name
     LogWrapper.logger_id = logger.add(__dd_sink, level="INFO")
 
